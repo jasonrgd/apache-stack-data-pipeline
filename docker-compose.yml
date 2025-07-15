@@ -1,5 +1,14 @@
-services:
+volumes:
+  metadata_data: {}
+  middle_var: {}
+  historical_var: {}
+  broker_var: {}
+  overlord_var: {}
+  coordinator_var: {}
+  router_var: {}
+  druid_shared: {}
 
+services:
   # ------------------ Infrastructure ------------------
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
@@ -36,7 +45,7 @@ services:
       - kafka
       - postgres
     ports:
-      - "8084:8083" # Avoid conflict with druid-historical
+      - "8084:8083"
     environment:
       BOOTSTRAP_SERVERS: kafka:9092
       GROUP_ID: 1
@@ -48,93 +57,104 @@ services:
       CONNECT_REST_ADVERTISED_HOST_NAME: connect
 
   # ------------------ Apache Druid Stack ------------------
-  druid-coordinator:
-    image: apache/druid:26.0.0
+
+  coordinator:
+    image: apache/druid:33.0.0
+    container_name: coordinator
+    volumes:
+      - druid_shared:/opt/shared
+      - coordinator_var:/opt/druid/var
     depends_on:
+      - zookeeper
       - postgres
-    environment:
-      - druid.zk.service.host=zookeeper:2181
-      - druid.metadata.storage.type=postgresql
-      - druid.metadata.storage.connector.connectURI=jdbc:postgresql://postgres:5432/druid
-      - druid.metadata.storage.connector.user=druid
-      - druid.metadata.storage.connector.password=druid
-      - druid.storage.type=local
-      - druid.storage.storageDirectory=/var/druid/deepstorage
     ports:
       - "8081:8081"
-    volumes:
-      - ./druid/deepstorage:/var/druid/deepstorage
+    command:
+      - coordinator
+    env_file:
+      - environment
 
-  druid-overlord:
-    image: apache/druid:26.0.0
+  overlord:
+    image: apache/druid:33.0.0
+    container_name: overlord
+    volumes:
+      - druid_shared:/opt/shared
+      - overlord_var:/opt/druid/var
     depends_on:
-      - druid-coordinator
-    environment:
-      - druid.zk.service.host=zookeeper:2181
-      - druid.metadata.storage.type=postgresql
-      - druid.metadata.storage.connector.connectURI=jdbc:postgresql://postgres:5432/druid
-      - druid.metadata.storage.connector.user=druid
-      - druid.metadata.storage.connector.password=druid
-      - druid.storage.type=local
-      - druid.storage.storageDirectory=/var/druid/deepstorage
+      - coordinator
     ports:
       - "8090:8090"
-    volumes:
-      - ./druid/deepstorage:/var/druid/deepstorage
+    command:
+      - overlord
+    env_file:
+      - environment
 
-  druid-broker:
-    image: apache/druid:26.0.0
+  broker:
+    image: apache/druid:33.0.0
+    container_name: broker
+    volumes:
+      - broker_var:/opt/druid/var
     depends_on:
-      - druid-coordinator
-    environment:
-      - druid.zk.service.host=zookeeper:2181
-      - druid.metadata.storage.type=postgresql
-      - druid.metadata.storage.connector.connectURI=jdbc:postgresql://postgres:5432/druid
-      - druid.metadata.storage.connector.user=druid
-      - druid.metadata.storage.connector.password=druid
-      - druid.storage.type=local
-      - druid.storage.storageDirectory=/var/druid/deepstorage
+      - zookeeper
+      - postgres
+      - coordinator
     ports:
       - "8082:8082"
-    volumes:
-      - ./druid/deepstorage:/var/druid/deepstorage
+    command:
+      - broker
+    env_file:
+      - environment
 
-  druid-historical:
-    image: apache/druid:26.0.0
+  historical:
+    image: apache/druid:33.0.0
+    container_name: historical
+    volumes:
+      - druid_shared:/opt/shared
+      - historical_var:/opt/druid/var
     depends_on:
-      - druid-coordinator
-    environment:
-      - druid.zk.service.host=zookeeper:2181
-      - druid.metadata.storage.type=postgresql
-      - druid.metadata.storage.connector.connectURI=jdbc:postgresql://postgres:5432/druid
-      - druid.metadata.storage.connector.user=druid
-      - druid.metadata.storage.connector.password=druid
-      - druid.storage.type=local
-      - druid.storage.storageDirectory=/var/druid/deepstorage
+      - zookeeper
+      - postgres
+      - coordinator
     ports:
       - "8083:8083"
-    volumes:
-      - ./druid/deepstorage:/var/druid/deepstorage
+    command:
+      - historical
+    env_file:
+      - environment
 
-  druid-router:
-    image: apache/druid:26.0.0
+  middlemanager:
+    image: apache/druid:33.0.0
+    container_name: middlemanager
+    volumes:
+      - druid_shared:/opt/shared
+      - middle_var:/opt/druid/var
     depends_on:
-      - druid-broker
-      - druid-historical
-    environment:
-      - druid.zk.service.host=zookeeper:2181
-      - druid.metadata.storage.type=postgresql
-      - druid.metadata.storage.connector.connectURI=jdbc:postgresql://postgres:5432/druid
-      - druid.metadata.storage.connector.user=druid
-      - druid.metadata.storage.connector.password=druid
-      - druid.storage.type=local
-      - druid.storage.storageDirectory=/var/druid/deepstorage
-      - druid.router.enableCors=true
-      - druid.router.allowedOrigins=*
+      - zookeeper
+      - postgres
+      - coordinator
+    ports:
+      - "8091:8091"
+      - "8100-8105:8100-8105"
+    command:
+      - middleManager
+    env_file:
+      - environment
+
+  router:
+    image: apache/druid:33.0.0
+    container_name: router
+    volumes:
+      - router_var:/opt/druid/var
+    depends_on:
+      - zookeeper
+      - postgres
+      - coordinator
     ports:
       - "8888:8888"
-    volumes:
-      - ./druid/deepstorage:/var/druid/deepstorage
+    command:
+      - router
+    env_file:
+      - environment
 
   # ------------------ Kafka UI ------------------
   kafka-ui:
@@ -157,4 +177,4 @@ services:
       - NODE_ENV=development
     command: ["npm", "run", "dev"]
     depends_on:
-      - druid-router
+      - router
