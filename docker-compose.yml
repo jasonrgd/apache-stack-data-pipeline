@@ -74,20 +74,6 @@ services:
     env_file:
       - environment
 
-  overlord:
-    image: apache/druid:33.0.0
-    container_name: overlord
-    volumes:
-      - druid_shared:/opt/shared
-      - overlord_var:/opt/druid/var
-    depends_on:
-      - coordinator
-    ports:
-      - "8090:8090"
-    command:
-      - overlord
-    env_file:
-      - environment
 
   broker:
     image: apache/druid:33.0.0
