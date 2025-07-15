@@ -5,7 +5,7 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   server: {
     proxy: {
-      '/druid': 'http://druid-router:8888/druid'
+      '/druid': 'http://router:8888'
     }
   },
   plugins: [vue()],
