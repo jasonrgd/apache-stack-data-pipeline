@@ -36,7 +36,7 @@ services:
       POSTGRES_USER: druid
       POSTGRES_DB: druid
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
   # ------------------ Debezium Connect ------------------
   connect:
@@ -57,7 +57,6 @@ services:
       CONNECT_REST_ADVERTISED_HOST_NAME: connect
 
   # ------------------ Apache Druid Stack ------------------
-
   coordinator:
     image: apache/druid:33.0.0
     container_name: coordinator
@@ -68,12 +67,11 @@ services:
       - zookeeper
       - postgres
     ports:
-      - "8081:8081"
+      - "8089:8081"
     command:
       - coordinator
     env_file:
       - environment
-
 
   broker:
     image: apache/druid:33.0.0
@@ -146,7 +144,7 @@ services:
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     ports:
-      - "8080:8080"
+      - "8088:8080"
     environment:
       - KAFKA_CLUSTERS_0_NAME=local
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
@@ -161,6 +159,6 @@ services:
       - ./frontend:/app
     environment:
       - NODE_ENV=development
-    command: ["npm", "run", "dev"]
+    command: sh -c "npm install --force && npm run dev"
     depends_on:
       - router
