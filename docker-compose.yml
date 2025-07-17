@@ -147,7 +147,7 @@ services:
 
   # ------------------ Trinio --------------------
   trino:
-    image: trinodb/trino:440
+    image: trinodb/trino:latest
     container_name: trino
     ports:
       - "8080:8080"
