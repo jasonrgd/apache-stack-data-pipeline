@@ -7,6 +7,8 @@ volumes:
   coordinator_var: {}
   router_var: {}
   druid_shared: {}
+  trino_data: {}
+  superset_data: {}
 
 services:
   # ------------------ Infrastructure ------------------
@@ -29,7 +31,7 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
-  postgres:
+  reporting-postgres:
     image: postgres:13
     environment:
       POSTGRES_PASSWORD: druid
@@ -37,13 +39,16 @@ services:
       POSTGRES_DB: druid
     ports:
       - "5433:5432"
+    volumes:
+      - ./postgres-init:/docker-entrypoint-initdb.d
+
 
   # ------------------ Debezium Connect ------------------
   connect:
     image: debezium/connect:2.4
     depends_on:
       - kafka
-      - postgres
+      - reporting-postgres
     ports:
       - "8084:8083"
     environment:
@@ -65,7 +70,7 @@ services:
       - coordinator_var:/opt/druid/var
     depends_on:
       - zookeeper
-      - postgres
+      - reporting-postgres
     ports:
       - "8089:8081"
     command:
@@ -80,7 +85,7 @@ services:
       - broker_var:/opt/druid/var
     depends_on:
       - zookeeper
-      - postgres
+      - reporting-postgres
       - coordinator
     ports:
       - "8082:8082"
@@ -97,7 +102,7 @@ services:
       - historical_var:/opt/druid/var
     depends_on:
       - zookeeper
-      - postgres
+      - reporting-postgres
       - coordinator
     ports:
       - "8083:8083"
@@ -114,7 +119,7 @@ services:
       - middle_var:/opt/druid/var
     depends_on:
       - zookeeper
-      - postgres
+      - reporting-postgres
       - coordinator
     ports:
       - "8091:8091"
@@ -131,7 +136,7 @@ services:
       - router_var:/opt/druid/var
     depends_on:
       - zookeeper
-      - postgres
+      - reporting-postgres
       - coordinator
     ports:
       - "8888:8888"
@@ -139,6 +144,38 @@ services:
       - router
     env_file:
       - environment
+
+  # ------------------ Trinio --------------------
+  trino:
+    image: trinodb/trino:440
+    container_name: trino
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./trino/etc:/etc/trino
+    depends_on:
+      - broker
+      - reporting-postgres
+
+  # ------------------ Superset ------------------
+
+  superset:
+    image: apache/superset:3.0.0
+    container_name: superset
+    ports:
+      - "8085:8088"
+    environment:
+      SUPERSET_SECRET_KEY: your-secret-key
+      DATABASE_URL: postgresql+psycopg2://druid:druid@postgres:5432/superset
+    depends_on:
+      - reporting-postgres
+    command: >
+      /bin/sh -c "
+        superset db upgrade &&
+        superset fab create-admin --username admin --firstname Superset --lastname Admin --email admin@superset.com --password admin123 &&
+        superset init &&
+        superset run -h 0.0.0.0 -p 8088 --with-threads --reload --debugger
+      "
 
   # ------------------ Kafka UI ------------------
   kafka-ui:
@@ -162,3 +199,8 @@ services:
     command: sh -c "npm install --force && npm run dev"
     depends_on:
       - router
+
+networks:
+  default:
+    name: dev-net
+    external: true
