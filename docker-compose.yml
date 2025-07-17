@@ -200,7 +200,7 @@ services:
     depends_on:
       - router
 
-networks:
-  default:
-    name: dev-net
-    external: true
+#networks:
+#  default:
+#    name: dev-net
+#    external: true

@@ -1,12 +1,19 @@
-import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+import Components from "unplugin-vue-components/vite";
+import { PrimeVueResolver } from "@primevue/auto-import-resolver";
 
 // https://vite.dev/config/
 export default defineConfig({
+  plugins: [
+    vue(),
+    Components({
+      resolvers: [PrimeVueResolver()],
+    }),
+  ],
   server: {
     proxy: {
-      '/druid': 'http://router:8888'
-    }
+      "/druid": "http://router:8888",
+    },
   },
-  plugins: [vue()],
-})
+});
